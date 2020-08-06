@@ -1,6 +1,7 @@
 use std::{env, fs};
 
 mod lexer;
+mod parser;
 
 fn main() {
     
@@ -15,5 +16,9 @@ fn main() {
 
     let tokens = lexer.get_tokens();
 
-    print!("{:?}", tokens);
+    let mut parser = parser::new(&tokens);
+
+    let ast = parser.parse_program();
+
+    println!("{:?}", ast);
 }

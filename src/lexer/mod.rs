@@ -1,12 +1,12 @@
 #[derive(PartialEq, Debug)]
-pub enum Token {
+pub enum Token<'a> {
     //special
     Illegal,
     EOF,
 
     //identifier + literals
     Number(u64),
-    Identifier(String),
+    Identifier(&'a str),
 
     //operators
     EqualSign,
@@ -68,7 +68,7 @@ fn is_digit(chr: char) -> bool {
 
 impl<'b> Lexer<'b> {
 
-    pub fn get_tokens(&mut self) -> Vec<Token> {
+    pub fn get_tokens(&mut self) -> Vec<Token<'b>> {
         let mut tokens = vec!(self.next_token());
         
         while *tokens.last().unwrap() != Token::EOF {
@@ -89,7 +89,7 @@ impl<'b> Lexer<'b> {
         self.read_position += 1;
     }
 
-    fn next_token(&mut self) -> Token {
+    fn next_token(&mut self) -> Token<'b> {
         let token: Token;
 
         self.skip_whitespace();
@@ -144,7 +144,7 @@ impl<'b> Lexer<'b> {
         }
     }
 
-    fn read_literal(&mut self) -> Token {
+    fn read_literal(&mut self) -> Token<'b> {
         let position = self.position;
         while is_letter(self.ch as char) {
             self.read_char();
@@ -159,12 +159,12 @@ impl<'b> Lexer<'b> {
             "else"   => Token::Else,
             "return" => Token::Return,
             _        => Token::Identifier(
-                            String::from(&self.code[position..self.position])
+                            &self.code[position..self.position]
                         )
         }
     }
 
-    fn read_number(&mut self) -> Token {
+    fn read_number(&mut self) -> Token<'b> {
         let position = self.position;
 
         while is_digit(self.ch as char) {
