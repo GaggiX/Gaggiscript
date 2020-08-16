@@ -1,11 +1,11 @@
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum Token<'a> {
     //special
     Illegal,
     EOF,
 
     //identifier + literals
-    Number(u64),
+    Number(i64),
     Identifier(&'a str),
 
     //operators
@@ -39,14 +39,14 @@ pub enum Token<'a> {
 }
 
 #[derive(Clone, Copy)]
-pub struct Lexer<'b> {
-    code:          &'b str,
+pub struct Lexer<'a> {
+    code:          &'a str,
     position:      usize,
     read_position: usize,
     ch:            u8
 }
 
-pub fn new<'b>(code: &'b str) -> Lexer {
+pub fn new<'a>(code: &'a str) -> Lexer {
     let mut lexer = Lexer{code, 
         position: 0, 
         read_position: 0, 
@@ -66,9 +66,9 @@ fn is_digit(chr: char) -> bool {
     '0' <= chr && chr <= '9' 
 }
 
-impl<'b> Lexer<'b> {
+impl<'a> Lexer<'a> {
 
-    pub fn get_tokens(&mut self) -> Vec<Token<'b>> {
+    pub fn get_tokens(&mut self) -> Vec<Token<'a>> {
         let mut tokens = vec!(self.next_token());
         
         while *tokens.last().unwrap() != Token::EOF {
@@ -89,7 +89,7 @@ impl<'b> Lexer<'b> {
         self.read_position += 1;
     }
 
-    fn next_token(&mut self) -> Token<'b> {
+    fn next_token(&mut self) -> Token<'a> {
         let token: Token;
 
         self.skip_whitespace();
@@ -144,7 +144,7 @@ impl<'b> Lexer<'b> {
         }
     }
 
-    fn read_literal(&mut self) -> Token<'b> {
+    fn read_literal(&mut self) -> Token<'a> {
         let position = self.position;
         while is_letter(self.ch as char) {
             self.read_char();
@@ -164,7 +164,7 @@ impl<'b> Lexer<'b> {
         }
     }
 
-    fn read_number(&mut self) -> Token<'b> {
+    fn read_number(&mut self) -> Token<'a> {
         let position = self.position;
 
         while is_digit(self.ch as char) {

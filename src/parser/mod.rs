@@ -1,5 +1,5 @@
 mod ast;
-use ast::{Program, Statement, Expression};
+pub use ast::{Program, Statement, Expression, Prefix, Infix};
 use crate::lexer::{Token};
 use std::process::exit;
 
@@ -30,12 +30,12 @@ fn get_precedence(token: &Token) -> Precedence {
 }
 
 pub struct Parser<'a> {
-    tokens:     &'a Vec<Token<'a>>,
+    tokens:     Vec<Token<'a>>,
     cur_token:  usize,
     peek_token: usize,
 }
 
-pub fn new<'a>(tokens: &'a Vec<Token<'a>>) -> Parser<'a> {
+pub fn new<'a>(tokens: Vec<Token<'a>>) -> Parser<'a> {
     let mut parser = Parser{
         tokens,
         cur_token:  0,
@@ -83,7 +83,7 @@ impl<'a> Parser<'a> {
     fn parse_let_statement(&mut self) -> Result<Statement<'a>, String> {
         
         let name: &str; 
-        if let Token::Identifier(i) = self.tokens[self.peek_token] {
+        if let Token::Identifier(i) = &self.tokens[self.peek_token] {
             name = i;
             self.next_token();
         } else {
@@ -124,12 +124,12 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression<'a>, String> {
-        let mut left_exp = match self.tokens[self.cur_token] {
+        let mut left_exp = match &self.tokens[self.cur_token] {
             Token::Identifier(i)       => Ok(Expression::Ident(i)),
-            Token::Number(i)           => Ok(Expression::Int(i)),
+            Token::Number(i)           => Ok(Expression::Int(*i)),
             Token::True | Token::False => Ok(Expression::Bool(self.cur_token_is(Token::True))),
-            Token::BangSign 
-            | Token::MinusSign         => Ok(self.parse_prefix_expression()?),
+            Token::BangSign            => Ok(self.parse_prefix_expression(Prefix::Not)?),
+            Token::MinusSign           => Ok(self.parse_prefix_expression(Prefix::PrefixMinus)?),
             Token::Lparen              => Ok(self.parse_grouped_expression()?),
             Token::If                  => Ok(self.parse_if_expression()?),
             Token::Function            => Ok(self.parse_function_literal()?),
@@ -140,14 +140,14 @@ impl<'a> Parser<'a> {
             self.next_token();
 
             left_exp = match self.tokens[self.cur_token] {
-                Token::PlusSign       
-                | Token::MinusSign   
-                | Token::SlashSign   
-                | Token::AsteriskSign
-                | Token::EQ          
-                | Token::NotEQ       
-                | Token::LT          
-                | Token::GT           => self.parse_infix_expression(left_exp?),
+                Token::PlusSign       => self.parse_infix_expression(left_exp?, Infix::Plus),
+                Token::MinusSign      => self.parse_infix_expression(left_exp?, Infix::Minus),
+                Token::SlashSign      => self.parse_infix_expression(left_exp?, Infix::Divide),
+                Token::AsteriskSign   => self.parse_infix_expression(left_exp?, Infix::Multiply),
+                Token::EQ             => self.parse_infix_expression(left_exp?, Infix::Equal),
+                Token::NotEQ          => self.parse_infix_expression(left_exp?, Infix::NotEqual),
+                Token::LT             => self.parse_infix_expression(left_exp?, Infix::LessThan),
+                Token::GT             => self.parse_infix_expression(left_exp?, Infix::GreaterThan),
                 Token::Lparen         => self.parse_call_expression(left_exp?),
                 _                     => left_exp
             }
@@ -156,14 +156,13 @@ impl<'a> Parser<'a> {
         left_exp
     }
 
-    fn parse_prefix_expression(&mut self) -> Result<Expression<'a>, String> {
-        let token = &self.tokens[self.cur_token];
+    fn parse_prefix_expression(&mut self, prefix: Prefix) -> Result<Expression<'a>, String> {
 
         self.next_token();
 
         let right = self.parse_expression(Precedence::Prefix)?;
 
-        Ok(Expression::PrefixExpression(token, Box::new(right)))
+        Ok(Expression::PrefixExpression(prefix, Box::new(right)))
     }
 
     fn parse_grouped_expression(&mut self) -> Result<Expression<'a>, String> {
@@ -243,15 +242,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_infix_expression(&mut self, left: Expression<'a>) -> Result<Expression<'a>, String> {
-        let token = &self.tokens[self.cur_token];
+    fn parse_infix_expression(&mut self, left: Expression<'a>, infix: Infix) -> Result<Expression<'a>, String> {
         let precedence = self.cur_precedence();
 
         self.next_token();
 
         let right = self.parse_expression(precedence)?;
 
-        Ok(Expression::InfixExpression(Box::new(left), token, Box::new(right)))
+        Ok(Expression::InfixExpression(Box::new(left), infix, Box::new(right)))
     }
 
     fn parse_call_expression(&mut self, left: Expression<'a>) -> Result<Expression<'a>, String> {
